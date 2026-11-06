@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Weight Progress Dashboard — Aqeel Qurban</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#09090c;--panel:#111116;--panel2:#16161d;--line:rgba(232,200,114,.14);
+  --gold:#e8c872;--gold2:#b8975a;--em:#3ddc97;--ink:#f4f1ea;--dim:#a29d90;--mute:#6d695f;
+  /* names used by the original script's inline markup, mapped onto the Obsidian palette */
+  --accent:#b8975a;--accent-light:#e8c872;--accent-cyan:#e8c872;--accent-orange:#d9a05b;--accent-green:#3ddc97;
+  --text:#f4f1ea;--text-dim:#a29d90;--text-muted:#6d695f;--glass-border:rgba(232,200,114,.14);--glass:#111116;
+}
+html{scroll-behavior:smooth;background:#09090c}
+body{background:radial-gradient(1200px 600px at 70% -10%,#1d1810 0%,var(--bg) 60%) fixed;color:var(--ink);font-family:Inter,sans-serif;font-size:15px;min-height:100vh;overflow-x:hidden}
+h1,h2,h3,.serif{font-family:'Playfair Display',serif;font-weight:500}
+
+/* SIDEBAR */
+.side{position:fixed;inset:0 auto 0 0;width:236px;background:rgba(10,10,14,.92);border-right:1px solid var(--line);padding:30px 20px;display:flex;flex-direction:column;gap:6px;z-index:20}
+.brand{font-family:'Playfair Display',serif;font-size:1.35rem;color:var(--gold);margin-bottom:4px}
+.brand small{display:block;font-family:Inter;font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;color:var(--mute);margin-top:6px}
+.side a{color:var(--dim);text-decoration:none;padding:11px 14px;border-radius:10px;font-size:.88rem;display:flex;gap:12px;align-items:center;transition:.2s}
+.side a i{font-style:normal;width:18px;text-align:center;color:var(--gold2)}
+.side a:hover,.side a.on{background:rgba(232,200,114,.08);color:var(--gold)}
+.side .me{margin-top:auto;border-top:1px solid var(--line);padding-top:18px;font-size:.78rem;color:var(--dim)}
+.side .me b{display:block;color:var(--ink);font-size:.9rem}
+
+main{margin-left:236px;padding:34px 44px 30px;max-width:2000px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:28px}
+.top h1{font-size:2rem}
+.top p{color:var(--mute);font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;margin-top:6px}
+.sync{display:flex;align-items:center;gap:10px;color:var(--dim);font-size:.75rem}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--em);box-shadow:0 0 10px var(--em);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.btn,.refresh-btn,.toggle-btn{background:rgba(232,200,114,.1);border:1px solid var(--line);color:var(--gold);border-radius:100px;padding:7px 16px;font:600 .75rem Inter,sans-serif;cursor:pointer;transition:.2s;white-space:nowrap}
+.btn:hover,.refresh-btn:hover,.toggle-btn:hover{background:rgba(232,200,114,.18);border-color:var(--gold)}
+.toggle-btn{display:flex;align-items:center;gap:6px}
+.toggle-arrow{display:inline-block;transition:transform .3s ease;font-style:normal}
+
+/* YEAR TABS */
+.year-tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);padding:5px;border-radius:100px;overflow-x:auto;scrollbar-width:none}
+.year-tabs::-webkit-scrollbar{display:none}
+.year-tab{background:none;border:0;color:var(--dim);padding:8px 20px;border-radius:100px;cursor:pointer;font:600 .8rem Inter,sans-serif;white-space:nowrap;transition:.2s}
+.year-tab:hover{color:var(--ink)}
+.year-tab.active{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1405}
+.year-tab:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+section{margin-top:44px;scroll-margin-top:20px}
+section.first{margin-top:0}
+.sh{display:flex;align-items:baseline;gap:14px;margin-bottom:18px}.sh h2{font-size:1.4rem}.sh span{color:var(--mute);font-size:.78rem}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:18px;padding:24px;transition:border-color .2s ease}
+.card:hover{border-color:rgba(232,200,114,.3)}
+.hero{display:grid;grid-template-columns:1.1fr 1.6fr;gap:20px}
+.ringwrap{display:flex;align-items:center;gap:26px}
+.ring{position:relative;width:170px;height:170px;flex:none}
+.ring svg{transform:rotate(-90deg)}
+.ring div{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.ring b{font:500 2.1rem 'Playfair Display';color:var(--gold)}.ring small{color:var(--mute);font-size:.65rem;letter-spacing:.14em;text-transform:uppercase}
+.big{font:500 3.6rem/1 'Playfair Display'}.big small{font:500 1rem Inter;color:var(--dim)}
+.lbl{font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);margin-bottom:8px}
+.up{color:var(--em);font-weight:600}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.g23{display:grid;grid-template-columns:1.4fr 1fr;gap:20px}
+.ctitle,.ct{font-weight:600;margin-bottom:3px}
+.csub,.cs{color:var(--mute);font-size:.76rem;margin-bottom:16px}
+canvas{max-height:270px}
+.chart-missing{font-size:.78rem;color:var(--accent-orange);padding:20px 0}
+
+/* KPI (generated by the original script) */
+.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-top:20px}
+.kpi{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:18px;padding:18px;position:relative}
+.kpi-label{font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);margin-bottom:6px}
+.kpi-val{font:500 1.7rem 'Playfair Display',serif;margin:4px 0;color:var(--ink)}
+.kpi-unit{font:500 .7rem Inter,sans-serif;color:var(--dim);margin-left:4px}
+.kpi-sub{font-size:.74rem;color:var(--dim)}
+.kpi-badge{position:absolute;bottom:16px;right:14px;font-size:.6rem;font-weight:700;padding:3px 9px;border-radius:100px;background:rgba(61,220,151,.1);color:var(--em)}
+
+/* ROWS / BARS */
+.trow{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:.86rem}
+.trow:last-child{border-bottom:none}
+.tl{color:var(--dim)}.tv{color:var(--ink);font-weight:600}.tv.green{color:var(--em)}
+.brow{margin-bottom:14px}
+.blabel{display:flex;justify-content:space-between;font-size:.8rem;color:var(--dim);margin-bottom:6px}
+.blabel span:last-child{color:var(--gold);font-weight:700}
+.btrack{height:6px;background:rgba(255,255,255,.06);border-radius:9px;overflow:hidden}
+.bfill{height:100%;background:linear-gradient(90deg,var(--gold2),var(--gold));border-radius:9px}
+
+/* TABLES */
+.lw-table,.cons-table{width:100%;border-collapse:collapse;font-size:.84rem}
+.lw-table th{text-align:left;padding:10px;font-size:.65rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);border-bottom:1px solid var(--line)}
+.lw-table td{padding:11px 10px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--dim);vertical-align:middle}
+.lw-table td:first-child{color:var(--ink)}
+.lw-table tr:last-child td{border-bottom:none}
+.lw-table tr:hover td{background:rgba(232,200,114,.03)}
+.lw-tag{display:inline-block;padding:3px 10px;border-radius:100px;font-size:.7rem;font-weight:600;background:rgba(232,200,114,.1);color:var(--gold)}
+.lw-wtag{display:inline-block;padding:3px 10px;border-radius:100px;font-size:.7rem;font-weight:600;background:rgba(61,220,151,.1);color:var(--em)}
+.cons-table{white-space:nowrap}
+.cons-table th.num,.cons-table td.num{text-align:right}
+.cons-table td.yr{color:var(--ink);font-weight:700}
+.cons-table tr.cons-year{cursor:pointer}
+.cons-table tr.cons-total td{color:var(--ink);font-weight:700;border-top:1px solid rgba(232,200,114,.3);background:rgba(232,200,114,.05)}
+.collapsible-header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;cursor:pointer;user-select:none}
+.collapsible-body{overflow:hidden;max-height:0;transition:max-height .4s cubic-bezier(.16,1,.3,1),opacity .3s ease;opacity:0}
+.collapsible-body.open{max-height:9999px;opacity:1}
+
+/* GOAL / SLEEP */
+.goal-input-row{display:flex;align-items:center;gap:12px;margin:14px 0;flex-wrap:wrap}
+.goal-input-row label{font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);font-weight:600}
+.goal-input,.sleep-input{background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:9px 14px;font:600 1rem Inter,sans-serif;width:110px;outline:none}
+.sleep-input{width:140px;color-scheme:dark}
+.goal-input:focus,.sleep-input:focus{border-color:var(--gold)}
+.wpc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+.wpc-item,.sleep-item,.macro-item,.wstat{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center}
+.wpc-item .wv,.sleep-time,.mv{font:500 1.25rem 'Playfair Display',serif;display:block}
+.wpc-item .wl,.sleep-lbl,.ml{font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin-top:4px}
+.sleep-time{color:var(--gold)}
+.prog{height:8px;background:rgba(255,255,255,.06);border-radius:9px;overflow:hidden;margin:6px 0}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--gold2),var(--gold));transition:width .8s}
+.sleep-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}
+#sleepTip{margin-top:10px;font-size:.78rem;color:var(--dim);line-height:1.6;border-left:2px solid var(--gold);padding:6px 12px}
+
+/* NUTRITION / FOOD / WEATHER / RECOS */
+.macro-g{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0}
+.mu{font-size:.7rem;color:var(--dim)}
+.food-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.food-group{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:18px;padding:18px}
+.food-gtitle{font-size:.68rem;letter-spacing:.16em;color:var(--gold);font-weight:700;margin-bottom:10px}
+.food-item{font-size:.82rem;color:var(--dim);padding:5px 0}
+.food-item::before{content:'◆ ';color:var(--gold2);font-size:.55rem}
+.weather-main{display:flex;align-items:center;gap:18px;margin-bottom:14px}
+.wtemp{font:500 3.2rem 'Playfair Display',serif;color:var(--ink);line-height:1}
+.wicon{font-size:3rem}
+.wdesc{font-size:.85rem;color:var(--dim)}
+.wstats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}
+.wstat{padding:12px;text-align:center}
+.wstat-l{font-size:.62rem;letter-spacing:.12em;color:var(--mute);text-transform:uppercase}
+.wstat-v{font:500 1.1rem 'Playfair Display',serif;color:var(--ink);margin-top:2px}
+.wadv{padding:12px 14px;border-radius:12px;font-size:.8rem;margin-top:12px}
+.reco-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.reco-card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:18px;padding:24px}
+.reco-icon{font-size:1.6rem}
+.reco-title{font:500 1.1rem 'Playfair Display',serif;margin-top:8px}
+.reco-body{font-size:.85rem;color:var(--dim);line-height:1.65;margin:8px 0 12px}
+.reco-tag{padding:3px 10px;border-radius:100px;font-size:.7rem;font-weight:600;background:rgba(232,200,114,.1);color:var(--gold)}
+
+/* STATE / ERROR */
+.state-details{max-width:760px;margin:14px auto 0;text-align:left;font-size:.72rem;line-height:1.7;color:var(--mute);white-space:pre-wrap;word-break:break-word;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:12px;padding:14px 18px}
+.state-links{max-width:760px;margin:14px auto 0;display:flex;flex-wrap:wrap;justify-content:center;gap:8px 18px;font-size:.78rem}
+.state-links:empty{display:none}
+.state-links .state-tip{flex-basis:100%;color:var(--mute);font-size:.72rem;line-height:1.6;text-align:left}
+.state-links a{color:var(--gold);text-decoration:none;font-weight:600}.state-links a:hover{text-decoration:underline}
+.footer{margin-left:236px;padding:24px 44px 40px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;font-size:.75rem;color:var(--mute);gap:10px;flex-wrap:wrap}
+
+@media(min-width:1900px){body{font-size:17px}main{padding:44px 72px 40px;margin-left:270px}.side{width:270px}.footer{margin-left:270px;padding:24px 72px 40px}canvas{max-height:340px}}
+@media(max-width:1100px){.hero,.g23{grid-template-columns:1fr}.kpi-grid{grid-template-columns:repeat(3,1fr)}.g3{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){
+  .side{inset:auto 0 0 0;width:auto;flex-direction:row;justify-content:space-around;padding:6px;border-top:1px solid var(--line);border-right:0;overflow-x:auto}
+  .side .brand,.side .me{display:none}.side a{flex-direction:column;gap:2px;font-size:.62rem;padding:8px 10px}
+  main{margin:0;padding:20px 16px 20px}.footer{margin:0 0 70px;padding:20px 16px}
+  .g2,.g3{grid-template-columns:1fr}.kpi-grid{grid-template-columns:1fr 1fr}.ringwrap{flex-direction:column;align-items:flex-start}
+  .big{font-size:2.8rem}.top h1{font-size:1.5rem}.year-tabs{width:100%;justify-content:space-between}
+  .wstats,.macro-g,.wpc-grid{grid-template-columns:1fr 1fr}.card{padding:18px}
+}
+
+/* ═══════════ MOBILE & TABLET LAYOUT (added) ═══════════
+   Everything below is inside max-width media queries (or hidden by default), so the desktop and 2K layouts above are untouched.
+   ≤900px : the sidebar becomes a slide-in drawer opened from a top bar.   ≤760px : phone layout. */
+.m-bar,.m-overlay{display:none}
+@media(max-width:900px){
+  html{-webkit-text-size-adjust:100%;scroll-padding-top:72px}
+  html,body{max-width:100%;overflow-x:hidden}
+  body.nav-open{overflow:hidden}
+
+  /* top bar + hamburger */
+  .m-bar{display:flex;position:fixed;top:0;left:0;right:0;z-index:50;height:56px;padding:0 14px 0 12px;align-items:center;gap:12px;background:rgba(10,10,14,.94);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .m-burger{flex:none;width:44px;height:44px;display:grid;place-items:center;border-radius:12px;border:1px solid var(--line);background:rgba(232,200,114,.1);color:var(--gold);cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .m-burger:hover{background:rgba(232,200,114,.18);border-color:var(--gold)}
+  .m-burger:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .m-burger svg{display:block}
+  .m-title{min-width:0;font-family:'Playfair Display',serif;font-size:1.1rem;line-height:1.1;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .m-title small{display:block;font:500 .6rem Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--mute);margin-top:3px}
+  .m-overlay{display:block;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.62);opacity:0;pointer-events:none;transition:opacity .25s ease;-webkit-tap-highlight-color:transparent}
+  .m-overlay.show{opacity:1;pointer-events:auto}
+
+  /* sidebar → drawer (overrides the old bottom-bar rules in the 760px block above) */
+  .side{inset:0 auto 0 0;width:min(84vw,300px);flex-direction:column;justify-content:flex-start;gap:6px;padding:24px 16px calc(24px + env(safe-area-inset-bottom,0px));border-top:0;border-right:1px solid var(--line);background:#0a0a0e;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;z-index:70;
+    transform:translateX(-104%);visibility:hidden;transition:transform .28s cubic-bezier(.16,1,.3,1),visibility 0s linear .28s}
+  .side.open{transform:none;visibility:visible;box-shadow:0 0 60px rgba(0,0,0,.75);transition:transform .28s cubic-bezier(.16,1,.3,1),visibility 0s}
+  .side:focus{outline:none}
+  .side .brand,.side .me{display:block}
+  .side .brand{margin-bottom:12px}
+  .side a{flex-direction:row;gap:12px;font-size:.95rem;padding:13px 14px;min-height:48px;-webkit-tap-highlight-color:transparent}
+  .side a i{width:20px}
+
+  /* page shell */
+  main{margin:0;max-width:100%;padding:calc(56px + 22px) 24px 24px}
+  .footer{margin:0;padding:20px 24px 30px}
+  section{margin-top:36px;scroll-margin-top:72px}
+  section.first{margin-top:0}
+  .hero>*,.g2>*,.g3>*,.g23>*{min-width:0}   /* lets cards (and the charts inside them) shrink instead of pushing the page wider */
+  .card{min-width:0}
+  canvas{max-width:100%}
+  .g3>:last-child:nth-child(odd){grid-column:1/-1}
+}
+
+@media(max-width:760px){
+  main{padding:calc(56px + 16px) 14px 22px}
+  .footer{padding:18px 14px 28px;font-size:.7rem}
+
+  /* header: title, year tabs, sync row — stacked */
+  .top{gap:14px;margin-bottom:20px}
+  .top>div:first-child{width:100%}
+  .top h1{font-size:1.5rem;line-height:1.25}
+  .top p{font-size:.66rem;letter-spacing:.1em;line-height:1.6}
+  .year-tabs{width:100%;padding:4px}
+  .year-tab{flex:1 0 auto;min-height:44px;padding:10px 14px;text-align:center}
+  .sync{width:100%;justify-content:space-between;gap:10px}
+  .sync #lastUpdated{flex:1;min-width:0}
+  .btn,.refresh-btn,.toggle-btn{min-height:44px;padding:10px 18px;-webkit-tap-highlight-color:transparent}
+  #loadingMsg{padding:56px 16px !important}
+  #stateMsg{padding:56px 14px !important}
+
+  /* cards & sections */
+  .card{padding:16px;border-radius:16px}
+  section{margin-top:32px}
+  .sh{flex-wrap:wrap;gap:2px 12px;margin-bottom:14px}.sh h2{font-size:1.25rem}
+  .g2{gap:14px;margin-bottom:14px}.g3,.g23,.hero{gap:14px}
+  .ringwrap{gap:18px}
+  .ring{margin:0 auto}
+  .ringwrap>div:last-child{width:100%}
+  .big{font-size:2.6rem}
+
+  /* KPI cards */
+  .kpi-grid{gap:12px;margin-top:14px}
+  .kpi{padding:14px;border-radius:16px;min-width:0}
+  .kpi-val{font-size:1.4rem;overflow-wrap:anywhere}
+  .kpi-label{font-size:.62rem;letter-spacing:.12em}
+  .kpi-badge{position:static;display:inline-block;margin-top:10px}
+
+  /* charts */
+  canvas{max-height:300px}
+
+  /* tables */
+  .lw-table{font-size:.78rem}
+  .lw-table th{padding:8px 6px;font-size:.58rem;letter-spacing:.1em}
+  .lw-table td{padding:10px 6px}
+  .lw-table td:nth-child(2){white-space:nowrap}
+  .lw-table th:first-child,.lw-table td:first-child{width:1%;padding-right:2px}
+  .lw-tag,.lw-wtag{padding:3px 8px;font-size:.66rem}
+  #locationWeatherTable,#consolidationTable{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+  .cons-table th:first-child,.cons-table td:first-child{position:sticky;left:0;z-index:1;background:var(--panel);box-shadow:1px 0 0 var(--line)}
+  .collapsible-header{gap:12px}
+
+  /* goal / sleep / nutrition / weather */
+  .goal-input-row{gap:10px}
+  .goal-input,.sleep-input{min-height:46px}
+  .wpc-grid,.macro-g{grid-template-columns:repeat(3,1fr);gap:8px}
+  .wpc-item,.macro-item{padding:12px 4px}
+  .wpc-item .wv,.mv{font-size:1.02rem}
+  .wpc-item .wl,.ml{font-size:.55rem;letter-spacing:.08em}
+  .sleep-grid{gap:8px}.sleep-item{padding:12px 6px}.sleep-time{font-size:1.05rem}
+  .wstats{gap:8px}
+  .wtemp{font-size:2.7rem}
+  .reco-card,.food-group{padding:16px}
+  .food-grid,.reco-grid{gap:12px}
+}
+
+@media(max-width:400px){
+  main{padding-left:12px;padding-right:12px}
+  .card{padding:14px}
+  .top h1{font-size:1.35rem}
+  .kpi-grid{gap:10px}
+  .kpi-val{font-size:1.25rem}
+  .kpi-unit{margin-left:3px}
+  .wpc-item .wv,.mv{font-size:.92rem}
+}
+</style>
+</head>
+<body>
+
+<!-- mobile / tablet top bar + drawer overlay (hidden on desktop) -->
+<header class="m-bar">
+  <button class="m-burger" id="navToggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="sideNav"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h16M3 11h16M3 16h16"/></svg></button>
+  <div class="m-title">Aqeel Qurban<small>Weight Progress</small></div>
+</header>
+<div class="m-overlay" id="navOverlay"></div>
+
+<nav class="side" id="sideNav">
+  <div class="brand">Aqeel Qurban<small>Weight Progress</small></div>
+  <a href="#overview" class="on"><i>◈</i>Overview</a>
+  <a href="#trend"><i>∿</i>Weight Trend</a>
+  <a href="#activity"><i>▦</i>Activity</a>
+  <a href="#log"><i>≡</i>Training Log</a>
+  <a href="#goals"><i>◎</i>Goals &amp; Sleep</a>
+  <a href="#nutrition"><i>❖</i>Nutrition</a>
+  <a href="#insights"><i>✦</i>Insights</a>
+  <div class="me"><b>Started 8 Feb 2026</b>Live from Google Sheets</div>
+</nav>
+
+<main>
+  <div class="top">
+    <div><h1>Weight Progress Dashboard</h1><p>Real-time workout &amp; weight tracking · Live Google Sheets data</p></div>
+    <div class="year-tabs" id="yearTabs" role="tablist" aria-label="Select year"></div>
+    <div class="sync"><div class="status-dot"></div><span id="lastUpdated">Fetching data…</span><button class="refresh-btn" onclick="safeLoad()">↻ Refresh</button></div>
+  </div>
+
+  <div id="loadingMsg" style="text-align:center;padding:80px;color:var(--dim);font-size:1.1rem">
+    <div style="font-size:3rem;margin-bottom:20px">✨</div>
+    <div class="serif" style="color:var(--ink);font-size:1.4rem">Processing Analytics</div>
+    <div style="font-size:.9rem;margin-top:8px" id="loadingSub">Connecting to Cloud Sheets...</div>
+  </div>
+  <div id="stateMsg" style="display:none;text-align:center;padding:80px 20px;color:var(--dim);font-size:1.1rem">
+    <div style="font-size:3rem;margin-bottom:20px" id="stateIcon"></div>
+    <div class="serif" style="color:var(--ink);font-size:1.4rem" id="stateTitle"></div>
+    <div style="font-size:.9rem;margin-top:8px" id="stateText"></div>
+    <div class="state-details" id="stateDetails" style="display:none"></div>
+    <div class="state-links" id="stateLinks"></div>
+    <button class="refresh-btn" style="margin-top:22px" onclick="safeLoad()">↻ Retry</button>
+  </div>
+
+  <div id="content" style="display:none">
+
+    <section id="overview" class="first">
+      <div class="hero">
+        <div class="card">
+          <div class="lbl">Weight lost</div>
+          <div class="ringwrap">
+            <div class="ring"><svg width="170" height="170"><circle cx="85" cy="85" r="74" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="9"/><circle id="ringArc" cx="85" cy="85" r="74" fill="none" stroke="#e8c872" stroke-width="9" stroke-linecap="round" stroke-dasharray="465" stroke-dashoffset="465" style="transition:stroke-dashoffset 1s"/></svg><div><b id="ringPct">0%</b><small>to goal</small></div></div>
+            <div>
+              <div class="big"><span id="heroLost">—</span> <small>KG</small></div>
+              <div style="color:var(--dim);margin-top:10px;font-size:.88rem">From <b id="heroStart">—</b> kg → <b id="heroLatest">—</b> kg</div>
+              <div class="up" style="margin-top:8px;font-size:.82rem">▲ <span id="heroRate">—</span> kg / week</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ctitle">Body Progress</div>
+          <div class="csub">Historical weight logging and goal projection</div>
+          <canvas id="weightChart"></canvas>
+        </div>
+      </div>
+
+      <div class="kpi-grid" id="kpiGrid"></div>
+
+      <div id="consolidationSection" style="display:none">
+        <div class="card" style="margin-top:20px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+            <div>
+              <div class="ctitle">Year-by-Year Consolidation</div>
+              <div class="csub" id="consSub" style="margin-bottom:0"></div>
+            </div>
+            <button class="btn" onclick="exportConsolidation()">⤓ Export CSV</button>
+          </div>
+          <div style="height:16px"></div>
+          <div id="consolidationTable" style="overflow-x:auto"></div>
+          <div id="consolidationNote" style="margin-top:12px;font-size:.7rem;color:var(--mute);line-height:1.6"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="trend">
+      <div class="sh"><h2>Progress Summary</h2><span>Start to latest</span></div>
+      <div class="g3">
+        <div class="card"><div class="ctitle">Weight Statistics</div><div style="height:8px"></div><div id="weightInsights"></div></div>
+        <div class="card"><div class="ctitle">Training Insights</div><div style="height:8px"></div><div id="workoutInsights"></div></div>
+        <div class="card"><div class="ctitle">Exercise Distribution</div><div style="height:12px"></div><div id="typeBars"></div></div>
+      </div>
+    </section>
+
+    <section id="activity">
+      <div class="sh"><h2>Monthly Activity</h2><span>Real data from your sheet</span></div>
+      <div class="g2" style="margin-bottom:0">
+        <div class="card"><div class="ctitle">Training Duration</div><div class="csub">Monthly cumulative workout time</div><canvas id="durationChart"></canvas></div>
+        <div class="card"><div class="ctitle">Distance Tracked</div><div class="csub">Total outdoor distance (km)</div><canvas id="distChart"></canvas></div>
+        <div class="card"><div class="ctitle">Calories Burned</div><div class="csub">Aggregate monthly active burn (kcal)</div><canvas id="calChart"></canvas></div>
+        <div class="card"><div class="ctitle">Step Count</div><div class="csub">Monthly movement tracking</div><canvas id="stepsChart"></canvas></div>
+      </div>
+      <div class="card" style="margin-top:20px"><div class="ctitle">Place &amp; Weather Conditions</div><div style="height:12px"></div><div id="placeWeatherBars"></div></div>
+    </section>
+
+    <section id="log">
+      <div class="sh"><h2>Training Log</h2><span>Location &amp; conditions</span></div>
+      <div class="card">
+        <div class="collapsible-header" onclick="toggleLog()">
+          <div><div class="ctitle">Session Details</div><div class="csub" style="margin-bottom:0">Training location and weather condition — all days</div></div>
+          <div class="toggle-btn" id="logToggleBtn"><span id="logToggleLabel">Show Log</span><i class="toggle-arrow" id="logArrow">▼</i></div>
+        </div>
+        <div class="collapsible-body" id="logBody">
+          <div style="height:10px"></div>
+          <div id="locationWeatherTable" style="overflow-x:auto"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="goals">
+      <div class="sh"><h2>Goal Calculator</h2><span>Interactive</span></div>
+      <div class="g23">
+        <div class="card">
+          <div class="ctitle">Weight Goal Tracker</div>
+          <div class="goal-input-row">
+            <label>Target Weight (kg)</label>
+            <input class="goal-input" id="goalInput" type="number" value="100" min="50" max="200" step="0.5" oninput="updateWPC()">
+            <span id="wpcGoalLabel" class="up" style="font-size:.8rem"></span>
+          </div>
+          <div class="wpc-grid" id="wpcStats"></div>
+          <div style="font-size:.75rem;color:var(--dim);display:flex;justify-content:space-between;margin-bottom:6px"><span id="wpcBarStart"></span><span id="wpcBarGoal"></span></div>
+          <div class="prog"><div class="prog-fill" id="wpcFill" style="width:0%"></div></div>
+          <div id="wpcPctLabel" class="serif" style="text-align:center;margin-top:10px;font-size:1.2rem"></div>
+        </div>
+        <div class="card">
+          <div class="ctitle" style="color:var(--gold)">Sleep Optimizer</div>
+          <div class="goal-input-row">
+            <label>Dinner Time</label>
+            <input type="time" class="sleep-input" id="dinnerTime" value="23:00" oninput="updateSleep()">
+          </div>
+          <div class="sleep-grid" id="sleepResults"></div>
+          <div id="sleepTip"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="nutrition">
+      <div class="sh"><h2>Environment &amp; Nutrition</h2><span>Manama</span></div>
+      <div class="g2" style="margin-bottom:0">
+        <div class="card"><div class="ctitle">Live Weather Feed — Manama</div><div class="csub">Environmental impacts on training</div><div id="weatherContent"><div style="color:var(--dim);font-size:.72rem">&gt; FETCHING WEATHER DATA...</div></div></div>
+        <div class="card"><div class="ctitle">Nutrition Architecture</div><div class="csub">Daily caloric and macro-nutrient targets</div><div id="nutritionContent"></div></div>
+      </div>
+      <div class="sh" style="margin-top:34px"><h2>Recommended Food Protocol</h2></div>
+      <div class="food-grid" id="foodContent"></div>
+    </section>
+
+    <section id="insights">
+      <div class="sh"><h2>Personalized Insights</h2><span>Based on your pace</span></div>
+      <div class="reco-grid" id="recoContent"></div>
+    </section>
+
+  </div>
+</main>
+
+<div class="footer">
+  <span>V26.1 High Performance Analytics • Connected to Cloud Data</span>
+  <span id="footerTime"></span>
+</div>
+
+<script>
+'use strict';
+// ── YEAR SOURCES ─────────────────────────────────────────────────
+// ONE ENTRY PER YEAR — each year reads from its own Google Sheet tab.
+//   csv        : that tab published to the web as CSV (File ▸ Share ▸ Publish to web ▸ CSV)
+//   appsScript : optional Apps Script web-app URL for that tab (tried first when present)
+// To add 2028 later: add a "2028:{…}" entry below. Tabs, default-year logic and loading pick it up automatically.
+const YEAR_SOURCES={
+  2026:{
+    appsScript:'https://script.google.com/macros/s/AKfycbwThFCTzpb-HLoH5O_tIog8OJ7j1Fnxo3zz1hzTVxcFOcbH7mf2z0z7yfaBzc-7403HuQ/exec',
+    csv:'https://docs.google.com/spreadsheets/d/e/2PACX-1vQHVRAqu2oR4z25rYUOc9tgRlXXYhpW-vnq26HIyOCF1szu08ZpS-R2RTpuhh2sqYYdeeppA6QfMftE/pub?gid=651269435&single=true&output=csv'
+  },
+  2027:{
+    appsScript:'https://script.google.com/macros/s/AKfycbwVewlpDrV1M7XuAqOiRa055xKtRJXlZd--qkVdL99_yIwOWGaMjbQzDjjIUKp4K6Vcmw/exec',
+    csv:'https://docs.google.com/spreadsheets/d/e/2PACX-1vQHVRAqu2oR4z25rYUOc9tgRlXXYhpW-vnq26HIyOCF1szu08ZpS-R2RTpuhh2sqYYdeeppA6QfMftE/pub?gid=1880717862&single=true&output=csv'   // "2027" tab
+  }
+};
+
+// Last-resort public CORS proxies. They are only contacted when every direct route has failed.
+const PROXIES=[
+  {name:'AllOrigins proxy',build:u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u)},
+  {name:'CodeTabs proxy',  build:u=>'https://api.codetabs.com/v1/proxy/?quest='+encodeURIComponent(u)},
+  {name:'ThingProxy',      build:u=>'https://thingproxy.freeboard.io/fetch/'+u}
+];
+
+const CACHE_TTL=5*60*1000;        // switching to a year cached more recently than this doesn't re-fetch
+const RETRY_GAP=60*1000;          // don't hammer a year that just failed when the All Years tab is reopened
+const T_DIRECT=9000,T_PROXY=8000,T_PAPA=8000; // per-stage network timeouts (ms)
+const STORE_PREFIX='fitdash.csv.v1.';
+const ALL='all';                  // key of the consolidated "All Years" tab
+
+const availableYears=()=>Object.keys(YEAR_SOURCES).map(Number).filter(Number.isFinite).sort((a,b)=>a-b);
+const configuredYears=()=>availableYears().filter(y=>{const s=YEAR_SOURCES[y];return s&&(s.csv||s.appsScript);});
+// Current calendar year if configured; otherwise the closest configured year (latest past one, else earliest)
+const getDefaultYear=()=>{const ys=availableYears(),now=new Date().getFullYear(),past=ys.filter(y=>y<=now);return past.length?past[past.length-1]:ys[0];};
+
+const byId=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const validWeight=w=>w>50&&w<300; // kg — keeps stray non-weight numbers (e.g. 1,620) out of the weight analytics
+const safe=(name,fn)=>{try{return fn();}catch(e){console.error(`[render:${name}]`,e);}}; // one broken widget never takes down the page
+let _viewAll=false;               // true while the consolidated tab is on screen
+
+// ── CHARTS ───────────────────────────────────────────────────────
+const HAS_CHART=typeof Chart!=='undefined';
+let charts={};
+function destroyCharts(){Object.values(charts).forEach(c=>{try{c&&c.destroy();}catch(_){}});charts={};}
+if(HAS_CHART){
+  Chart.defaults.color='#8d887a';
+  Chart.defaults.font.family="'Inter', sans-serif";
+  Chart.defaults.font.size=11;
+}else console.warn('Chart.js failed to load — charts are disabled, everything else still works.');
+// Phones only: taller charts (Chart.js's default 2:1 shape is too short on a narrow screen). On wider screens this does NOTHING —
+// the default is never touched, so desktop / 2K charts behave exactly as before.
+if(HAS_CHART&&window.matchMedia){
+  const mqPhone=window.matchMedia('(max-width:760px)'),AR_DEFAULT=Chart.defaults.aspectRatio;
+  const applyAspect=()=>{
+    const ar=mqPhone.matches?1.25:AR_DEFAULT;
+    Chart.defaults.aspectRatio=ar;
+    Object.values(charts).forEach(c=>{try{c.options.aspectRatio=ar;c.resize();}catch(_){}});
+  };
+  if(mqPhone.matches)applyAspect();                                                    // already on a phone at load
+  const onPhoneChange=()=>applyAspect();                                               // crossing the breakpoint later (rotate / resize)
+  if(mqPhone.addEventListener)mqPhone.addEventListener('change',onPhoneChange);else if(mqPhone.addListener)mqPhone.addListener(onPhoneChange);
+}
+const gridColor='rgba(255, 255, 255, 0.05)';
+const TT={backgroundColor:'#0b0b0e',borderColor:'rgba(232, 200, 114, 0.3)',borderWidth:1,titleColor:'#f4f1ea',bodyColor:'#a29d90',padding:12,cornerRadius:12,displayColors:false};
+function chartMissing(id){
+  const c=byId(id);if(!c)return;c.style.display='none';
+  if(!c.parentNode.querySelector('.chart-missing')){const d=document.createElement('div');d.className='chart-missing';d.textContent='Chart library could not be loaded (check your connection).';c.parentNode.appendChild(d);}
+}
+function chartRestore(id){const c=byId(id);if(!c)return;c.style.display='';const m=c.parentNode.querySelector('.chart-missing');if(m)m.remove();}
+
+// ── NUMBER / TIME / DATE PARSING ─────────────────────────────────
+const parseNum=v=>{
+  if(v==null)return null;let s=String(v).trim();if(!s)return null;
+  if(/^-?\d{1,3}(,\d{3})+(\.\d+)?/.test(s))s=s.replace(/,/g,'');          // 1,620  → 1620
+  else if(/^-?\d+,\d{1,2}(?!\d)/.test(s))s=s.replace(',','.');             // 131,6  → 131.6 (decimal comma)
+  const n=parseFloat(s.replace(/[^0-9.\-]/g,''));return isNaN(n)?null:n;
+};
+const parseTime=v=>{ // → minutes. Accepts 1:05:30, 45:00 (h:mm), "1h 20m", "45 min", plain minutes
+  if(v==null)return null;const s=String(v).trim();if(!s)return null;
+  let m=s.match(/^(\d+):(\d{1,2}):(\d{1,2})(?:\.\d+)?$/);if(m)return Number(m[1])*60+Number(m[2])+Number(m[3])/60;
+  m=s.match(/^(\d+):(\d{1,2})$/);if(m)return Number(m[1])*60+Number(m[2]);
+  const h=s.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\b/i),mi=s.match(/(\d+(?:\.\d+)?)\s*(?:m|min|mins|minute|minutes)\b/i);
+  if(h||mi)return (h?parseFloat(h[1])*60:0)+(mi?parseFloat(mi[1]):0);
+  return parseNum(s);
+};
+const fmtD=m=>{const h=Math.floor(m/60),r=Math.round(m%60);return h?(r?`${h}h ${r}m`:`${h}h`):`${r}m`;};
+
+const MON3=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+const monthOrder=m=>{const k=String(m||'').trim().toLowerCase().slice(0,3);const i=MON3.indexOf(k);return i===-1?99:i;};
+// Day-first aware, year-less aware date parser ("Sun 8 Feb", "08/02/2026", "2026-02-08", "February 8th", serial numbers…)
+function parseDateLoose(raw,yearHint){
+  if(raw==null)return null;const s=String(raw).trim();if(!s)return null;
+  const mk=(y,m,d)=>{const dt=new Date(y,m,d);return(dt.getFullYear()===y&&dt.getMonth()===m&&dt.getDate()===d)?dt:null;};
+  let m;
+  if(/^\d{5}(\.\d+)?$/.test(s)){const n=parseFloat(s);if(n>30000&&n<80000){const d=new Date(Date.UTC(1899,11,30)+Math.floor(n)*864e5);return mk(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());}}
+  if((m=s.match(/\b((?:19|20)\d{2})[-\/.](\d{1,2})[-\/.](\d{1,2})\b/)))return mk(+m[1],+m[2]-1,+m[3]);
+  if((m=s.match(/\b(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})\b/))){let y=+m[3],a=+m[1],b=+m[2];if(y<100)y+=2000;if(b>12&&a<=12){const t=a;a=b;b=t;}return mk(y,b-1,a);} // day-first
+  const mn=s.toLowerCase().match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?/);
+  if(mn){
+    const ym=s.match(/\b(?:19|20)\d{2}\b/);
+    const rest=s.replace(/\b(?:19|20)\d{2}\b/,' ').toLowerCase().replace(mn[0],' ');
+    const dm=rest.match(/\b(\d{1,2})(?:st|nd|rd|th)?\b/);
+    if(!dm)return null;
+    return mk(ym?+ym[0]:(yearHint||new Date().getFullYear()),MON3.indexOf(mn[1]),+dm[1]);
+  }
+  if((m=s.match(/^\D*(\d{1,2})[\/.](\d{1,2})\D*$/))){let a=+m[1],b=+m[2];if(b>12&&a<=12){const t=a;a=b;b=t;}return mk(yearHint||new Date().getFullYear(),b-1,a);}
+  const d=new Date(s);return isNaN(d.getTime())?null:d;
+}
+const rowDate=r=>r.dt||parseDateLoose(r.date||r.month,r.year);
+const fmtRowDate=r=>{const d=rowDate(r);if(d)return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});return String(r.date||r.month||'').trim().split(' ').slice(0,2).join(' ');};
+const yrSuffix=r=>(_viewAll&&r.year)?' '+r.year:'';
+const monthYear=m=>{const x=String(m).match(/\b(19|20)\d{2}\b/);return x?+x[0]:0;};
+const monthLabel=m=>{if(!_viewAll)return m;const y=String(m).match(/\b(?:19|20)(\d{2})\b/);return y?`${String(m).replace(/\b(19|20)\d{2}\b/,'').trim().slice(0,3)} '${y[1]}`:m;};
+
+// ── CSV TEXT → ROWS ──────────────────────────────────────────────
+const toCSV=rows=>rows.map(r=>r.map(c=>{c=String(c==null?'':c);return /[",\n\r]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(',')).join('\n');
+function csvToRows(text){
+  text=String(text||'').replace(/^\uFEFF/,'');
+  if(typeof Papa!=='undefined'){ // handles quoted multi-line cells; comma unless the header line clearly uses ; or tab
+    try{
+      const first=text.split(/\r?\n/,1)[0]||'';
+      const delimiter=first.includes(',')?',':first.includes('\t')?'\t':first.includes(';')?';':',';
+      return Papa.parse(text,{header:false,delimiter,skipEmptyLines:'greedy'}).data;
+    }catch(_){}
+  }
+  const rows=[];let row=[],f='',q=false; // tiny RFC-4180 fallback if PapaParse never loaded
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(q){if(c==='"'){if(text[i+1]==='"'){f+='"';i++;}else q=false;}else f+=c;}
+    else if(c==='"')q=true;
+    else if(c===','){row.push(f);f='';}
+    else if(c==='\n'||c==='\r'){if(c==='\r'&&text[i+1]==='\n')i++;row.push(f);f='';rows.push(row);row=[];}
+    else f+=c;}
+  if(f!==''||row.length){row.push(f);rows.push(row);}
+  return rows.filter(r=>r.some(c=>String(c).trim()!==''));
+}
+
+// ── COLUMN MATCHING ──────────────────────────────────────────────
+// Each logical field lists header synonyms (case/punctuation/spacing-insensitive). A leading "=" means exact match only.
+const FIELD_KEYS={
+  month:   ['Month'],
+  date:    ['Date & Day','Day & Date','Date','=Day'],
+  time:    ['Workout time','Workout duration','Duration','=Time'],
+  distance:['Distance','=Dist','=KM'],
+  calories:['Total Cal.','Total Calories','Calories burned','Calories','Kcal','=Cal'],
+  steps:   ['Steps','Step count'],
+  weight:  ['Wieght','Weight','Body weight','=Wt'],
+  hr:      ['Avg. Heart rate','Average heart rate','Heart rate','Heart','=HR','=BPM'],
+  weather: ['Weather Conditions','Weather Condition','Weather','Conditions'],
+  food:    ['Food','Meal','Meals','Diet'],
+  place:   ['Place','Training Location','Location','=Where'],
+  type:    ['Type','Exercise','Activity','Workout type']
+};
+const FIELD_ORDER=['month','date','time','distance','calories','steps','weight','hr','weather','food','place','type']; // most specific first
+const FIELD_REJECT={weight:/goal|target|change|diff|loss|lost|bmi/,time:/stamp|sleep|dinner/};
+const nrm=s=>String(s==null?'':s).toLowerCase().replace(/[^a-z0-9]/g,'');
+function resolveColumns(fields){
+  const hN=fields.map(nrm),used=new Set(),map={};
+  for(const f of FIELD_ORDER){
+    const keys=FIELD_KEYS[f].map(k=>({n:nrm(k.replace(/^=/,'')),exact:k[0]==='='})).filter(k=>k.n);
+    const rej=FIELD_REJECT[f];let idx=-1;
+    for(const pass of [0,1,2]){ // 0 = exact, 1 = starts with, 2 = contains
+      for(const k of keys){
+        if(pass>0&&(k.exact||k.n.length<4))continue;
+        const i=hN.findIndex((h,j)=>!used.has(j)&&h&&!(rej&&rej.test(h))&&(pass===0?h===k.n:pass===1?h.startsWith(k.n):h.includes(k.n)));
+        if(i!==-1){idx=i;break;}
+      }
+      if(idx!==-1)break;
+    }
+    if(idx!==-1){used.add(idx);map[f]=fields[idx];}
+  }
+  return map;
+}
+function scoreHeader(row){ // how many distinct known fields does this row's cells look like?
+  const got=new Set();
+  row.forEach(c=>{const h=nrm(c);if(!h||h.length>40)return;
+    for(const f of FIELD_ORDER){if(got.has(f))continue;
+      const hit=FIELD_KEYS[f].some(k=>{const ex=k[0]==='=',n=nrm(k.replace(/^=/,''));return n&&(h===n||(!ex&&n.length>=4&&(h.startsWith(n)||h.includes(n))));});
+      if(hit){got.add(f);break;}}});
+  return got.size;
+}
+function findHeader(rows){let best=-1,bs=1;const lim=Math.min(rows.length,20);for(let i=0;i<lim;i++){const s=scoreHeader(rows[i]);if(s>bs){bs=s;best=i;}}return best;} // needs ≥2 known columns
+
+// ── ROW CLEANING ─────────────────────────────────────────────────
+const SUMMARY_LOOSE=/\b(grand\s*total|sub\s*-?\s*total|totals?|summary|average|avg|mean)\b/i;
+const SUMMARY_START=/^\s*(max|maximum|min|minimum|sum|count)\b/i;
+const HEADER_REPEAT=/^\s*(month|date(\s*&\s*day)?|type)\s*$/i;
+const SHEET_ERR=/#(ref|n\/a|div\/0|value|name|num|error)/i;
+const TYPE_SUMMARY=/^\s*(grand\s*total|totals?|summary|average|avg)\s*$/i;
+const REST_RE=/\b(rest|off)\s*day\b|^\s*rest\s*$/i;
+const SESSION_TYPE=/walk|run|jog|cycl|bike|swim|gym|strength|hik|rowing|hiit|cardio|train|yoga|treadmill/i;
+const isRest=r=>REST_RE.test(r.type||'');
+// A "session" = a non-rest row where something was actually done (single definition used by every widget)
+const isSession=r=>!isRest(r)&&((r.workoutTime||0)>0||(r.distance||0)>0||SESSION_TYPE.test(r.type||''));
+
+function processData(rows,fields,year){
+  const map=resolveColumns(fields);
+  const g=(r,k)=>{const c=map[k];return c==null?'':String(r[c]==null?'':r[c]).trim();};
+  const now=new Date(),horizon=new Date(now.getFullYear(),now.getMonth(),now.getDate()+2); // today + 2 days of timezone slack
+  let lastMonth='';const out=[];
+  rows.forEach(r=>{
+    const rawMonth=g(r,'month'),date=g(r,'date');let type=g(r,'type');
+    // Spreadsheet summary / repeated-header / formula-error rows — judged per cell, never on concatenated text
+    if([rawMonth,date].some(v=>v&&(SUMMARY_LOOSE.test(v)||SUMMARY_START.test(v)||HEADER_REPEAT.test(v)||SHEET_ERR.test(v))))return;
+    if(TYPE_SUMMARY.test(type)||HEADER_REPEAT.test(type)||SHEET_ERR.test(type))return;
+    const hasId=!!(date||type);
+    if(!hasId&&!rawMonth)return;
+    if(/^\d+(\.\d+)?$/.test(type)){if(!date)return;type='';} // a bare number in "Type" is misaligned data, not an exercise
+    const rec={month:rawMonth,date,type,workoutTime:parseTime(g(r,'time')),distance:parseNum(g(r,'distance')),calories:parseNum(g(r,'calories')),
+      weight:parseNum(g(r,'weight')),steps:parseNum(g(r,'steps')),hr:parseNum(g(r,'hr')),weatherCond:g(r,'weather'),food:g(r,'food'),place:g(r,'place'),year:year||0};
+    rec.dt=parseDateLoose(date||rawMonth,year);
+    // Merged / blank month cells: inherit the month above, else derive it from the date
+    if(rawMonth&&rawMonth!=='?')lastMonth=rawMonth;
+    else if(!rawMonth&&hasId)rec.month=lastMonth||(rec.dt?rec.dt.toLocaleString('en-GB',{month:'long'}):'');
+    const hasMetric=[rec.weight,rec.calories,rec.distance,rec.steps,rec.workoutTime,rec.hr].some(v=>v>0);
+    const future=!!(rec.dt&&rec.dt>horizon);
+    if(future&&!(rec.weight>0||rec.workoutTime>0||rec.distance>0))return; // pre-filled template rows for dates that haven't happened yet
+    const keep=hasMetric||isRest(rec)||(date&&(type||rec.place||rec.weatherCond));
+    if(keep)out.push(rec);
+  });
+  return out;
+}
+
+// Parse one sheet's CSV text into cleaned rows
+function parseCSV(csv,year){
+  const rows=csvToRows(csv);
+  if(!rows.length)return[];
+  const hi=findHeader(rows);
+  if(hi<0)return[];
+  const seen={};
+  const fields=rows[hi].map((c,i)=>{const h=String(c==null?'':c).trim()||`__col${i}`;const k=h.toLowerCase();seen[k]=(seen[k]||0)+1;return seen[k]>1?`${h}__${seen[k]}`:h;});
+  const objs=rows.slice(hi+1).map(r=>{const o={};fields.forEach((f,i)=>{o[f]=r[i]!==undefined?String(r[i]).trim():'';});return o;});
+  return processData(objs,fields,year);
+}
+
+// ── FETCHING ─────────────────────────────────────────────────────
+const peekText=t=>String(t).replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,90);
+const withBust=u=>u+(u.includes('?')?'&':'?')+'t='+Date.now();
+function jsonToCSV(txt){ // Apps Script web apps often answer with JSON instead of CSV
+  try{
+    let j=JSON.parse(txt);
+    if(!Array.isArray(j))j=j&&(j.values||j.data||j.rows||j.records||j.items);
+    if(!Array.isArray(j)||!j.length)return null;
+    if(Array.isArray(j[0]))return toCSV(j);
+    if(j[0]&&typeof j[0]==='object'){const keys=[...new Set(j.flatMap(o=>Object.keys(o||{})))];return toCSV([keys,...j.map(o=>keys.map(k=>o&&o[k]!=null?o[k]:''))]);}
+  }catch(_){}
+  return null;
+}
+// → {ok,csv} or {ok:false,why}. A response only counts if it really looks like THIS dashboard's sheet.
+function normalizePayload(txt,trustBlank){
+  const s=String(txt==null?'':txt).replace(/^\uFEFF/,''),tr=s.trim();
+  if(!tr)return trustBlank?{ok:true,csv:''}:{ok:false,why:'empty response'};
+  if(tr[0]==='<')return{ok:false,why:`returned a web page, not CSV: "${peekText(tr)}"`};
+  let csv=s;
+  if(tr[0]==='['||tr[0]==='{'){const j=jsonToCSV(tr);if(!j)return{ok:false,why:`returned JSON without rows: "${tr.slice(0,80)}"`};csv=j;}
+  const rows=csvToRows(csv);
+  // A tab that is formatted but empty exports as rows of bare commas — that is a real (blank) sheet, not a fetch failure
+  if(!rows.length)return(trustBlank||/,/.test(tr))?{ok:true,csv:''}:{ok:false,why:`didn't contain any rows: "${tr.slice(0,80)}"`};
+  if(findHeader(rows)<0)return{ok:false,why:`didn't contain the expected column headers: "${tr.slice(0,80).replace(/\s+/g,' ')}"`};
+  return{ok:true,csv};
+}
+// Resolves to a CSV string ('' = valid but blank sheet) or null. Never rejects.
+async function fetchText(url,label,log,opts){
+  opts=opts||{};
+  const ac=new AbortController(),t=setTimeout(()=>ac.abort(),opts.ms||T_DIRECT);
+  try{
+    const r=await fetch(url,{signal:ac.signal,cache:'no-store',credentials:'omit',redirect:'follow',referrerPolicy:'no-referrer'});
+    if(!r.ok){log.push(`${label} → HTTP ${r.status}`);return null;}
+    const n=normalizePayload(await r.text(),!!opts.trustBlank);
+    if(n.ok)return n.csv;
+    log.push(`${label} → ${n.why}`);return null;
+  }catch(e){
+    if(e&&e.name==='AbortError'){log.push(`${label} → timed out`);return null;}
+    let why='blocked / network error';
+    if(opts.probe){ // a failed CORS fetch is ambiguous: was Google unreachable, or did it answer with a page the browser may not read?
+      why=(await reachable(url))
+        ?'Google answered, but the reply is unreadable here — the tab/script is probably not published publicly, or the link is wrong'
+        :'could not reach the server (offline, firewall, VPN or a browser extension is blocking it)';
+    }
+    log.push(`${label} → ${why}`);return null;
+  }finally{clearTimeout(t);}
+}
+// no-cors probe: resolves true if the server answered at all (the reply stays opaque), false if the network itself failed
+async function reachable(url){
+  const ac=new AbortController(),t=setTimeout(()=>ac.abort(),4000);
+  try{await fetch(url,{mode:'no-cors',signal:ac.signal,cache:'no-store',credentials:'omit',referrerPolicy:'no-referrer'});return true;}
+  catch(_){return false;}
+  finally{clearTimeout(t);}
+}
+// Run tasks (priority order) in parallel; return the best valid result. A lower-priority answer waits up to graceMs for a
+// higher-priority one (so live Apps Script data beats the slightly cached published CSV), then wins. A blank sheet only
+// counts if nothing non-blank was found. Resolves null when everything failed.
+function pickByPriority(tasks,graceMs){
+  return new Promise(resolve=>{
+    if(!tasks.length)return resolve(null);
+    const res=new Array(tasks.length);let done=false,timer=null;
+    const finish=v=>{if(done)return;done=true;clearTimeout(timer);resolve(v);};
+    const bestNonBlank=()=>{for(let i=0;i<res.length;i++)if(typeof res[i]==='string'&&res[i]!=='')return res[i];return null;};
+    const evaluate=()=>{
+      if(done)return;
+      for(let i=0;i<res.length;i++){
+        if(res[i]===undefined){ // a higher-priority task is still running
+          if(bestNonBlank()!==null&&!timer)timer=setTimeout(()=>{const b=bestNonBlank();if(b!==null)finish(b);},graceMs);
+          return;
+        }
+        if(typeof res[i]==='string'&&res[i]!=='')return finish(res[i]);
+      }
+      finish(res.some(v=>v==='')?'':null);
+    };
+    tasks.forEach((t,i)=>{Promise.resolve().then(t).then(v=>v,()=>null).then(v=>{res[i]=v;evaluate();});});
+  });
+}
+function papaDownload(url,log){ // last resort: PapaParse's own XHR download, with a hard timeout
+  return new Promise(resolve=>{
+    let fin=false;
+    const done=v=>{if(!fin){fin=true;clearTimeout(t);resolve(v);}};
+    const t=setTimeout(()=>{log.push('PapaParse download → timed out');done(null);},T_PAPA);
+    try{
+      Papa.parse(url,{download:true,header:false,skipEmptyLines:true,
+        complete:r=>{const n=normalizePayload(toCSV(r.data||[]),true);if(n.ok)done(n.csv);else{log.push('PapaParse download → '+n.why);done(null);}},
+        error:e=>{const m=e&&e.message;log.push('PapaParse download → '+(m&&!/^\[object /.test(m)?m:'blocked / network error'));done(null);}});
+    }catch(e){log.push('PapaParse download → '+(e&&e.message||e));done(null);}
+  });
+}
+function csvVariants(csv){ // other spellings of the same published link (e.g. when only the whole document is published)
+  const out=[];
+  try{const u=new URL(csv);if(u.searchParams.has('single')){u.searchParams.delete('single');out.push(u.toString());}}catch(_){}
+  return out;
+}
+async function fetchCSV(src,log,progress){
+  log=log||[];progress=progress||(()=>{});
+  const apps=src.appsScript||'',csv=src.csv||'';
+  if(typeof navigator!=='undefined'&&navigator.onLine===false){log.push('The browser reports it is offline');return null;}
+  if(location.protocol==='file:')log.push('Page is opened from file:// — if every route below fails, serve it over http (e.g. "python -m http.server") or host it.');
+  // Stage 1 — direct: Apps Script (live) preferred over published CSV
+  progress('trying Google Sheets directly…');
+  const s1=[];
+  if(apps)s1.push(()=>fetchText(withBust(apps),'Apps Script',log,{probe:true}));
+  if(csv)s1.push(()=>fetchText(withBust(csv),'Published CSV',log,{trustBlank:true,probe:true}));
+  let out=await pickByPriority(s1,2500);
+  if(out!==null)return out;
+  // Stage 2 — alternate link spellings, then CORS proxies (all in parallel)
+  if(csv){
+    progress('direct access blocked — trying alternate routes…');
+    const s2=[];
+    csvVariants(csv).forEach(u=>s2.push(()=>fetchText(withBust(u),'Published CSV (alt link)',log,{trustBlank:true,probe:true})));
+    PROXIES.forEach(p=>s2.push(()=>fetchText(p.build(withBust(csv)),p.name,log,{ms:T_PROXY})));
+    out=await pickByPriority(s2,2000);
+    if(out!==null)return out;
+    // Stage 3 — PapaParse download
+    if(typeof Papa!=='undefined'){progress('last attempt…');out=await papaDownload(withBust(csv),log);if(out!==null)return out;}
+  }
+  return null;
+}
+
+// ── LAST-GOOD COPY (so a failed sync still shows data) ───────────
+const saveCache=(y,csv)=>{try{localStorage.setItem(STORE_PREFIX+y,JSON.stringify({ts:Date.now(),csv}));}catch(_){}};
+const loadCache=y=>{try{const o=JSON.parse(localStorage.getItem(STORE_PREFIX+y)||'null');return o&&typeof o.csv==='string'?o:null;}catch(_){return null;}};
+
+// ── YEAR STATE ───────────────────────────────────────────────────
+let currentYear=null,_autoYear=null,_loadSeq=0,_prefetched=false;
+const yearCache={},_inflight={};  // yearCache[year]={data,ts,stale?}
+const yearErr={};                 // last failure details per year (shown on the error screen + console)
+const yearStatus={};              // last fetch status per year: ok | empty | stale | failed | unconfigured
+const lastTry={};                 // when each year was last attempted
+
+async function _fetchYear(year){
+  const src=YEAR_SOURCES[year];
+  if(!src||(!src.csv&&!src.appsScript))return{status:'unconfigured'};
+  const log=yearErr[year]=[];lastTry[year]=Date.now();
+  const progress=m=>{if(currentYear===year&&byId('loadingMsg').style.display!=='none')byId('loadingSub').textContent=`${year}: ${m}`;};
+  let csv=null;
+  try{csv=await fetchCSV(src,log,progress);}catch(e){log.push('fetch error: '+(e&&e.message||e));}
+  if(csv!==null){
+    try{
+      const data=parseCSV(csv,year);
+      if(csv)saveCache(year,csv);
+      yearCache[year]={data,ts:Date.now()};
+      return{status:data.length?'ok':'empty'};
+    }catch(e){log.push('could not read the sheet data: '+e.message);console.error(`[${year}] parse error`,e);}
+  }
+  console.warn(`[${year}] could not fetch sheet`,log);
+  if(yearCache[year])return{status:'failed'};            // keep what we already have on screen
+  const c=loadCache(year);                                // otherwise fall back to the last good copy from a previous visit
+  if(c){try{yearCache[year]={data:parseCSV(c.csv,year),ts:c.ts,stale:true};return{status:'stale'};}catch(_){}}
+  return{status:'failed'};
+}
+// Joins an in-flight request for the same year instead of firing a duplicate. Never rejects.
+const fetchYearData=year=>_inflight[year]||(_inflight[year]=_fetchYear(year)
+  .catch(e=>{(yearErr[year]=yearErr[year]||[]).push('unexpected error: '+(e&&e.message||e));return{status:'failed'};})
+  .then(r=>{yearStatus[year]=r.status;return r;})
+  .finally(()=>{delete _inflight[year];}));
+
+function showView(view,year,reason){
+  byId('loadingMsg').style.display=view==='loading'?'block':'none';
+  byId('stateMsg').style.display=view==='state'?'block':'none';
+  byId('content').style.display=view==='content'?'block':'none';
+  if(view==='loading')byId('loadingSub').textContent=year===ALL?'Connecting to all Cloud Sheets...':`Connecting to ${year} Cloud Sheet...`;
+  if(view==='state'){
+    const m=(year===ALL?{
+      unconfigured:['🔗','No Sheets Connected','Add each year\'s Google Sheet link to YEAR_SOURCES to build the consolidated report.'],
+      empty:['📭','No Records Yet','Entries will appear here as soon as workouts are logged in any year\'s sheet.'],
+      failed:['⚠️',"Couldn't Load Data",'Check your connection and that your sheets are published to the web, then press Retry.']
+    }:{
+      unconfigured:['🔗',`${year} Sheet Not Connected`,`Add the ${year} Google Sheet link to YEAR_SOURCES to start tracking this year.`],
+      empty:['📭',`No ${year} Records Yet`,`Entries will appear here as soon as workouts are logged in the ${year} sheet.`],
+      failed:['⚠️',`Couldn't Load ${year} Data`,`Check your connection and that the "${year}" tab is published as CSV (File ▸ Share ▸ Publish to web ▸ Link ▸ choose the "${year}" tab ▸ Comma-separated values (.csv) ▸ Publish). Then press Retry.`]
+    })[reason];
+    byId('stateIcon').textContent=m[0];byId('stateTitle').textContent=m[1];
+    byId('stateText').textContent=m[2];
+    let det='';
+    if(reason==='failed'){
+      const ys=year===ALL?configuredYears():[year];
+      det=ys.map(y=>yearErr[y]&&yearErr[y].length?(ys.length>1?`[${y}]\n`:'')+yearErr[y].join('\n'):'').filter(Boolean).join('\n\n');
+    }
+    const d=byId('stateDetails');d.textContent=det?'Details:\n'+det:'';d.style.display=det?'block':'none';
+    // One-click test links: open each in a new tab — a working link shows/downloads CSV text; a Google error or sign-in page means it isn't published publicly
+    const L=byId('stateLinks');L.textContent='';
+    if(reason==='failed'){
+      const links=[];
+      (year===ALL?configuredYears().filter(y=>yearStatus[y]==='failed'):[year]).forEach(y=>{
+        const s=YEAR_SOURCES[y]||{};
+        if(s.csv)links.push([`Test the ${y} CSV link`,s.csv]);
+        if(s.appsScript)links.push([`Test the ${y} Apps Script link`,s.appsScript]);
+      });
+      if(links.length){
+        const tip=document.createElement('div');tip.className='state-tip';
+        tip.textContent='Open each link in a new tab. A working link shows or downloads CSV text. A Google error page, a sign-in page or "file not found" means that tab or script is not published publicly yet.';
+        L.appendChild(tip);
+        links.forEach(([t,u])=>{const a=document.createElement('a');a.href=u;a.target='_blank';a.rel='noopener noreferrer';a.textContent=t+' ↗';L.appendChild(a);});
+      }
+    }
+  }
+}
+const setSynced=(ts,stale)=>{byId('lastUpdated').textContent=(stale?'Offline · cached ':'Last Sync: ')+new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});};
+
+// Draw one year's cached rows (or its empty state). Charts are always destroyed first so nothing leaks between years.
+function paintYear(year,entry){
+  destroyCharts();
+  _viewAll=year===ALL;
+  byId('consolidationSection').style.display=_viewAll?'block':'none';
+  if(!entry.data.length){showView('state',year,'empty');}
+  else{showView('content');renderDashboard(entry.data);if(_viewAll)safe('consolidation',renderConsolidation);}
+  setSynced(entry.ts,entry.stale);
+}
+
+// ── CONSOLIDATION (All Years) ────────────────────────────────────
+// All years' rows merged in order. Rows are COPIED (cached single-year data stays untouched) and tagged with their year,
+// so months from different years never merge into one bar and dates without a year still sort / pace correctly.
+function buildConsolidated(){
+  const rows=[];
+  availableYears().forEach(y=>{
+    const c=yearCache[y];if(!c||!c.data.length)return;
+    c.data.forEach(r=>{
+      const m=String(r.month||'').trim();
+      rows.push({...r,year:y,month:(m&&m!=='?'&&!/\b(19|20)\d{2}\b/.test(m))?`${m} ${y}`:m});
+    });
+  });
+  return rows;
+}
+function summarize(data){
+  const wR=data.filter(r=>r.weight&&validWeight(r.weight));
+  const start=wR.length?wR[0].weight:null,latest=wR.length?wR[wR.length-1].weight:null;
+  const sum=k=>data.reduce((t,r)=>t+(r[k]||0),0);
+  return{days:data.length,sessions:data.filter(isSession).length,dist:sum('distance'),min:sum('workoutTime'),cal:sum('calories'),steps:sum('steps'),start,latest,lost:(start!=null&&latest!=null)?+(start-latest).toFixed(1):null};
+}
+let _consRows=null;
+function renderConsolidation(){
+  const yrs=availableYears().filter(y=>yearCache[y]&&yearCache[y].data.length);
+  const per=yrs.map(y=>[String(y),summarize(yearCache[y].data),y]);
+  const tot=summarize(buildConsolidated());
+  _consRows=[...per.map(([l,s])=>[l,s]),['All Time',tot]];
+  const kg=v=>v!=null?v+' kg':'—';
+  const tr=(l,s,y)=>`<tr class="${y?'cons-year':'cons-total'}"${y?` onclick="selectYear('${y}')" title="Open ${y}"`:''}><td class="yr">${l}</td><td class="num">${s.days}</td><td class="num">${s.sessions}</td><td class="num">${s.dist?s.dist.toFixed(1)+' km':'—'}</td><td class="num">${s.min?fmtD(s.min):'—'}</td><td class="num">${s.cal?Math.round(s.cal).toLocaleString():'—'}</td><td class="num">${s.steps?Math.round(s.steps).toLocaleString():'—'}</td><td class="num">${kg(s.start)}</td><td class="num">${kg(s.latest)}</td><td class="num" style="color:var(--accent-green);font-weight:700">${kg(s.lost)}</td></tr>`;
+  byId('consolidationTable').innerHTML=`<table class="lw-table cons-table"><thead><tr><th>Year</th><th class="num">Days</th><th class="num">Sessions</th><th class="num">Distance</th><th class="num">Time</th><th class="num">Calories</th><th class="num">Steps</th><th class="num">Start</th><th class="num">Latest</th><th class="num">Lost</th></tr></thead><tbody>${per.map(([l,s,y])=>tr(l,s,y)).join('')}${tr('All Time',tot,null)}</tbody></table>`;
+  byId('consSub').textContent=`${yrs.length} year${yrs.length===1?'':'s'} consolidated · ${tot.days} logged days`;
+  const why={unconfigured:'no sheet connected',failed:"couldn't load — see the 2nd tab's Retry screen for details",stale:'showing last saved copy',empty:'no records yet'};
+  const missing=availableYears().filter(y=>!yrs.includes(y)).map(y=>`${y} (${why[yearStatus[y]]||'no records yet'})`);
+  const stale=yrs.filter(y=>yearCache[y].stale).map(y=>`${y} is the last saved copy (offline)`);
+  byId('consolidationNote').innerHTML='Year rows measure weight change within that year; All Time runs from the first logged weight to the latest. Click a year to open it.'+(missing.length?`<br>Not included: ${missing.join(', ')}.`:'')+(stale.length?`<br>Note: ${stale.join(', ')}.`:'');
+}
+function exportConsolidation(){
+  if(!_consRows)return;
+  const head=['Year','Days','Sessions','Distance (km)','Workout Time (min)','Calories (kcal)','Steps','Start Weight (kg)','Latest Weight (kg)','Weight Lost (kg)'];
+  const line=([l,s])=>[l,s.days,s.sessions,+s.dist.toFixed(2),Math.round(s.min),Math.round(s.cal),Math.round(s.steps),s.start==null?'':s.start,s.latest==null?'':s.latest,s.lost==null?'':s.lost];
+  const csv=toCSV([head,..._consRows.map(line)]);
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  const a=document.createElement('a');a.href=url;a.download='workout-consolidation.csv';document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function paintAll(){
+  const entries=configuredYears().map(y=>yearCache[y]).filter(Boolean);
+  paintYear(ALL,{data:buildConsolidated(),ts:Math.min(...entries.map(c=>c.ts)),stale:entries.some(c=>c.stale)});
+}
+
+// ── YEAR TABS ────────────────────────────────────────────────────
+const tabKeys=()=>[ALL,...configuredYears()]; // All Years first, then each configured year ascending — a year appears only once its data source is set in YEAR_SOURCES
+function renderYearTabs(){
+  byId('yearTabs').innerHTML=tabKeys().map(y=>{const on=y===currentYear;return `<button class="year-tab${on?' active':''}" role="tab" aria-selected="${on}" tabindex="${on?0:-1}" onclick="selectYear('${y}')">${y===ALL?'All Years':y}</button>`;}).join('');
+}
+function openYear(year){
+  currentYear=year;renderYearTabs();
+  if(year===ALL){ // consolidated view: build from whatever years are cached, then fill any gaps / stale years quietly
+    const cfg=configuredYears(),have=cfg.filter(y=>yearCache[y]);
+    if(have.length){
+      paintAll();
+      const missingDue=cfg.some(y=>!yearCache[y]&&Date.now()-(lastTry[y]||0)>RETRY_GAP);
+      const stale=Date.now()-Math.min(...have.map(y=>yearCache[y].ts))>CACHE_TTL;
+      if(missingDue||stale)safeLoad();
+    }else safeLoad();
+    return;
+  }
+  const c=yearCache[year];
+  if(c){paintYear(year,c);if(Date.now()-c.ts>CACHE_TTL)safeLoad();} // instant from cache, quiet refresh only if stale
+  else safeLoad();
+}
+function selectYear(year){year=year===ALL?ALL:+year;if(year!==currentYear)openYear(year);}
+// When the calendar year changes (even with the page left open), jump to the new year's tab — unless the person is on All Years
+function checkYearRollover(){
+  const d=getDefaultYear();
+  if(d===_autoYear)return;
+  _autoYear=d;
+  if(currentYear!==ALL&&d!==currentYear)openYear(d);
+}
+// Warm the other years' data in the background so tab switches are instant (failures are silent)
+async function prefetchOthers(){
+  for(const y of availableYears()){if(y!==currentYear&&!yearCache[y])await fetchYearData(y);}
+}
+
+// Refresh every configured year, then rebuild the consolidated view. One failing year never blocks the others.
+async function loadAll(seq){
+  const cfg=configuredYears();
+  if(!cfg.some(y=>yearCache[y])){destroyCharts();showView('loading',ALL);byId('lastUpdated').textContent='Fetching data…';}
+  const res=await Promise.all(availableYears().map(y=>fetchYearData(y)));
+  if(seq!==_loadSeq||currentYear!==ALL)return;
+  if(availableYears().some(y=>yearCache[y]&&yearCache[y].data.length)){
+    paintAll();
+    if(res.some(r=>r.status==='failed'||r.status==='stale'))byId('lastUpdated').textContent='Partial Sync';
+  }else{
+    const reason=!cfg.length?'unconfigured':res.some(r=>r.status==='failed')?'failed':'empty';
+    destroyCharts();byId('consolidationSection').style.display='none';showView('state',ALL,reason);
+    if(reason==='empty')setSynced(Date.now());else byId('lastUpdated').textContent=reason==='failed'?'Sync Failed':'Not connected';
+  }
+}
+
+// ── MAIN LOAD (refreshes the selected year, or all years on the All Years tab) ──
+let _latestW=131.6;
+let _startW=138.5;
+let _weeklyRate=0.5;
+let _ctx={data:[],lost:null,sess:0,latestW:null};
+async function loadData(){
+  const year=currentYear,seq=++_loadSeq;
+  byId('footerTime').textContent=new Date().toLocaleString();
+  try{
+    if(year===ALL)return await loadAll(seq);
+    if(!yearCache[year]){destroyCharts();showView('loading',year);byId('lastUpdated').textContent='Fetching data…';}
+    const {status}=await fetchYearData(year);
+    if(seq!==_loadSeq||year!==currentYear)return; // user switched tabs while this was loading
+    if(status==='unconfigured'){destroyCharts();showView('state',year,'unconfigured');byId('lastUpdated').textContent='Not connected';}
+    else if(status==='failed'){
+      byId('lastUpdated').textContent='Sync Failed';
+      if(!yearCache[year]){destroyCharts();byId('consolidationSection').style.display='none';showView('state',year,'failed');}
+    }else{
+      paintYear(year,yearCache[year]);
+      if(status==='stale')byId('lastUpdated').textContent='Sync Failed · showing saved copy';
+    }
+  }catch(e){
+    console.error('loadData failed',e);
+    (yearErr[year]=yearErr[year]||[]).push('unexpected error: '+(e&&e.message||e));
+    if(seq===_loadSeq&&year===currentYear){
+      byId('lastUpdated').textContent='Error';
+      const has=year===ALL?configuredYears().some(y=>yearCache[y]):!!yearCache[year];
+      if(!has){destroyCharts();showView('state',year,'failed');}
+    }
+  }finally{
+    if(!_prefetched&&seq===_loadSeq){_prefetched=true;prefetchOthers().catch(()=>{});}
+  }
+}
+function safeLoad(){loadData().catch(e=>console.error('loadData',e));} // every caller goes through here → no unhandled rejections
+
+// ── RENDER DASHBOARD ─────────────────────────────────────────────
+function renderDashboard(data){
+  const wRows=data.filter(r=>r.weight&&validWeight(r.weight));
+  const weights=wRows.map(r=>r.weight);
+  const startW=weights.length?weights[0]:null,latestW=weights.length?weights[weights.length-1]:null;
+  const minW=weights.length?Math.min(...weights):null,maxW=weights.length?Math.max(...weights):null;
+  const lost=(startW!=null&&latestW!=null)?+(startW-latestW).toFixed(1):null;
+  _latestW=latestW||131.6;
+  _startW=startW||138.5;
+  _weeklyRate=0.5; // reset so a year with <2 weight logs never inherits the previous year's pace
+  if(startW!=null&&latestW!=null&&wRows.length>=2){ // actual weekly loss rate: kg lost / weeks between first and last weight log
+    const d0=rowDate(wRows[0]),d1=rowDate(wRows[wRows.length-1]);
+    if(d0&&d1){const weeks=Math.max(1,(d1-d0)/(7*864e5));const rate=lost/weeks;if(rate>0&&isFinite(rate))_weeklyRate=+rate.toFixed(3);}
+  }
+
+  const sess=data.filter(isSession).length;
+  const totCal=data.reduce((s,r)=>s+(r.calories||0),0);
+  const totDist=data.reduce((s,r)=>s+(r.distance||0),0);
+  const totMin=data.reduce((s,r)=>s+(r.workoutTime||0),0);
+  const totStep=data.reduce((s,r)=>s+(r.steps||0),0);
+  _ctx={data,lost,sess,latestW};
+
+  safe('hero',()=>{
+    const set=(id,v)=>{const e=byId(id);if(e)e.textContent=v;};
+    set('heroLost',lost!=null?lost.toFixed(1):'—');set('heroStart',startW!=null?startW:'—');set('heroLatest',latestW!=null?latestW:'—');set('heroRate',_weeklyRate.toFixed(2));
+  });
+
+  safe('kpis',()=>{
+    const kpis=[
+      {label:'Weight Loss',val:lost!=null?lost.toFixed(1):'—',unit:'KG',sub:`From ${startW!=null?startW:'—'} kg`,badge:'Progress'},
+      {label:'Total Distance',val:totDist?totDist.toFixed(1):'—',unit:'KM',sub:`${sess&&totDist?(totDist/sess).toFixed(1):'0'} km average`},
+      {label:'Workout Time',val:totMin?Math.round(totMin/60):'—',unit:'HRS',sub:'Active duration'},
+      {label:'Calories Burned',val:totCal?Math.round(totCal).toLocaleString():'—',unit:'KCAL',sub:`Across ${data.length} entries`},
+      {label:'Steps Taken',val:totStep?Math.round(totStep/1000).toFixed(0)+'K':'—',unit:'STEPS',sub:'Walking log'},
+      {label:'Total Days',val:data.length||'—',unit:'DAYS',sub:'All logged sessions'},
+    ];
+    byId('kpiGrid').innerHTML=kpis.map(k=>`
+      <div class="kpi">
+        <div class="kpi-label">${k.label}</div>
+        <div class="kpi-val">${k.val}<span class="kpi-unit">${k.unit}</span></div>
+        <div class="kpi-sub">${k.sub}</div>
+        ${k.badge?`<div class="kpi-badge">${k.badge}</div>`:''}
+      </div>`).join('');
+  });
+
+  safe('charts',()=>{
+    const ids=['weightChart','durationChart','distChart','calChart','stepsChart'];
+    if(!HAS_CHART){ids.forEach(chartMissing);return;}
+    ids.forEach(chartRestore);
+    const byM={};
+    data.forEach(r=>{const m=(r.month||'').trim();if(m&&m!=='?'&&m.length>2){(byM[m]=byM[m]||[]).push(r);}}); // skip stray/empty month keys
+    const months=Object.keys(byM).sort((a,b)=>(monthYear(a)-monthYear(b))||(monthOrder(a)-monthOrder(b)));
+    const sumBy=k=>months.map(m=>byM[m].reduce((s,r)=>s+(r[k]||0),0));
+    const mCal=sumBy('calories'),mDist=sumBy('distance'),mMin=sumBy('workoutTime'),mSteps=sumBy('steps');
+
+    const wLabels=wRows.map(r=>fmtRowDate(r)+yrSuffix(r));
+    const yMin=minW!=null?Math.floor(minW)-2:120,yMax=maxW!=null?Math.ceil(maxW)+2:140;
+    const wCanvas=byId('weightChart'),wCtx=wCanvas.getContext('2d');
+    const wGrad=wCtx.createLinearGradient(0,0,0,260);wGrad.addColorStop(0,'rgba(232, 200, 114, 0.28)');wGrad.addColorStop(1,'rgba(232, 200, 114, 0)');
+    charts.weight=new Chart(wCanvas,{type:'line',data:{labels:wLabels,datasets:[{label:'Weight',data:weights,borderColor:'#e8c872',borderWidth:2.5,backgroundColor:wGrad,fill:true,tension:0.4,pointRadius:3,pointBackgroundColor:'#e8c872',pointBorderWidth:0}]},options:{responsive:true,plugins:{legend:{display:false},tooltip:{...TT}},scales:{x:{grid:{display:false},ticks:{color:'#8d887a'}},y:{min:yMin,max:yMax,grid:{color:gridColor},ticks:{callback:v=>v+'kg',color:'#64748b'}}}}});
+
+    const makeBar=(id,vals,color)=>{charts[id]=new Chart(byId(id),{type:'bar',data:{labels:months.map(monthLabel),datasets:[{data:vals,backgroundColor:color+'aa',borderRadius:6,hoverBackgroundColor:color}]},options:{responsive:true,plugins:{legend:{display:false},tooltip:TT},scales:{x:{grid:{display:false}},y:{grid:{color:gridColor}}}}});};
+    makeBar('calChart',mCal,'#6442A1');makeBar('distChart',mDist,'#4ade80');makeBar('stepsChart',mSteps,'#d9d4c4');
+    charts.durationChart=new Chart(byId('durationChart'),{type:'bar',data:{labels:months.map(monthLabel),datasets:[{data:mMin,backgroundColor:'#3E63C2aa',borderRadius:6,hoverBackgroundColor:'#4C6ABF'}]},options:{responsive:true,plugins:{legend:{display:false},tooltip:{...TT,callbacks:{label:c=>fmtD(c.parsed.y)}}},scales:{x:{grid:{display:false}},y:{grid:{color:gridColor},ticks:{callback:v=>fmtD(v)}}}}});
+  });
+
+  safe('insights',()=>{
+    byId('weightInsights').innerHTML=[['Start Weight',startW!=null?startW+' kg':'—'],['Latest Log',latestW!=null?latestW+' kg':'—'],['Lowest Record',minW!=null?minW+' kg':'—'],['Total Difference',lost!=null?lost+' kg':'—']].map(([l,v])=>`<div class="trow"><span class="tl">${l}</span><span class="tv green">${v}</span></div>`).join('');
+    const avgDist=sess>0?(totDist/sess).toFixed(2):'0';
+    byId('workoutInsights').innerHTML=[['Sessions',sess||'—'],['Total Time',totMin?fmtD(totMin):'—'],['Avg Calories',sess&&totCal?Math.round(totCal/sess)+' kcal':'—'],['Avg Distance',avgDist+' km']].map(([l,v])=>`<div class="trow"><span class="tl">${l}</span><span class="tv">${v}</span></div>`).join('');
+  });
+
+  safe('distribution',()=>{
+    const tC={};
+    data.forEach(r=>{const t=(r.type||'').trim();if(t&&isNaN(t)&&t.length>1&&!/total|summary/i.test(t))tC[t]=(tC[t]||0)+1;});
+    const topTypes=Object.entries(tC).sort((a,b)=>b[1]-a[1]).slice(0,6),maxT=topTypes[0]?topTypes[0][1]:1;
+    byId('typeBars').innerHTML=topTypes.length?topTypes.map(([t,c])=>`<div class="brow"><div class="blabel"><span>${esc(t)}</span><span>${c} SESSIONS</span></div><div class="btrack"><div class="bfill" style="width:${(c/maxT*100).toFixed(0)}%"></div></div></div>`).join(''):'<div style="color:var(--text-muted);font-size:0.8rem">No exercise types logged yet.</div>';
+  });
+
+  safe('goal',updateWPC);
+  safe('sleep',updateSleep);
+  safe('nutrition',renderNutrition);
+  safe('food',renderFood);
+  safe('recos',renderRecos);
+  safe('weather',fetchWeather);
+  safe('log',()=>renderLocationWeather(data));
+  safe('placeWeather',()=>renderPlaceWeatherSummary(data));
+}
+
+// ── WPC ──────────────────────────────────────────────────────────
+function updateWPC(){
+  const startW=_startW||138.5,currentW=_latestW,goalW=parseFloat(byId('goalInput')&&byId('goalInput').value)||90;
+  const lost=+(startW-currentW).toFixed(1),toGo=+(currentW-goalW).toFixed(1),total=startW-goalW;
+  const pct=total>0?Math.max(0,Math.min(100,+((lost/total)*100).toFixed(1))):0;
+  let weeksLeft=0;
+  if(toGo>0){const rate=_weeklyRate>0?_weeklyRate:0.5;weeksLeft=Math.round(toGo/rate);} // kg/week from the real data
+  const eta=()=>{const d=new Date();d.setDate(d.getDate()+weeksLeft*7);return d.toLocaleDateString('en-GB',{month:'short',year:'numeric'});};
+  const el=byId('wpcStats');if(!el)return;
+  el.innerHTML=[['Lost',lost+' kg','green'],['Remaining',Math.max(0,toGo)+' kg','cyan'],['ETA',toGo>0?eta():'Reached','cyan']].map(([l,v,c])=>`<div class="wpc-item"><div class="wv" style="color:var(--accent-${c})">${v}</div><div class="wl">${l}</div></div>`).join('');
+  const fi=byId('wpcFill');if(fi)setTimeout(()=>{fi.style.width=pct+'%';},100);
+  const pi=byId('wpcPctLabel');if(pi)pi.textContent=pct+'% Toward Goal';
+  const ra=byId('ringArc');if(ra)ra.style.strokeDashoffset=465*(1-pct/100);
+  const rp=byId('ringPct');if(rp)rp.textContent=Math.round(pct)+'%';
+  const gl=byId('wpcGoalLabel');if(gl)gl.textContent=toGo>0?`${toGo} KG LEFT`:'GOAL REACHED!';
+  const bs=byId('wpcBarStart');if(bs)bs.textContent=startW+' KG (START)';
+  const bg=byId('wpcBarGoal');if(bg)bg.textContent=goalW+' KG (GOAL)';
+  if(_ctx.data.length)safe('recos',renderRecos); // the insight cards follow the same target weight
+}
+
+// ── SLEEP ─────────────────────────────────────────────────────────
+function updateSleep(){
+  const inp=byId('dinnerTime');if(!inp)return;
+  const [dH,dM]=(inp.value||'20:00').split(':').map(Number);const din=(dH||0)*60+(dM||0);
+  const fmt=t=>{const h=Math.floor(t/60)%24,m=t%60,ap=h>=12?'PM':'AM',h12=h%12||12;return `${h12}:${String(m).padStart(2,'0')} ${ap}`;};
+  const items=[{t:din+150,l:'EARLIEST'},{t:din+180,l:'IDEAL BED'},{t:din+180+450,l:'7.5H WAKE'},{t:din+180+540,l:'9H WAKE'}];
+  byId('sleepResults').innerHTML=items.map(({t,l})=>`<div class="sleep-item"><div class="sleep-time">${fmt(t)}</div><div class="sleep-lbl">${l}</div></div>`).join('');
+  byId('sleepTip').innerHTML=`Optimal bedtime: <span style="color:var(--accent-cyan)">${fmt(din+180)}</span>. This ensures a 3-hour digestion window to maximize overnight lipolysis.`;
+}
+
+// ── NUTRITION ────────────────────────────────────────────────────
+function renderNutrition(){
+  const w=_latestW||131.6,water=+(w*0.035).toFixed(1);
+  byId('nutritionContent').innerHTML=`
+    <div class="macro-g">
+      <div class="macro-item"><div class="mv" style="color:white">2,400</div><div class="mu">kcal</div><div class="ml">Daily Target</div></div>
+      <div class="macro-item"><div class="mv" style="color:var(--accent-cyan)">${Math.round(w*1.8)}</div><div class="mu">g</div><div class="ml">Protein</div></div>
+      <div class="macro-item"><div class="mv" style="color:var(--accent-orange)">240</div><div class="mu">g</div><div class="ml">Carbs</div></div>
+    </div>
+    <div class="macro-g">
+      <div class="macro-item"><div class="mv">80</div><div class="mu">g</div><div class="ml">Fats</div></div>
+      <div class="macro-item"><div class="mv">2,900</div><div class="mu">kcal</div><div class="ml">Maintenance</div></div>
+      <div class="macro-item"><div class="mv" style="color:var(--accent-cyan)">${water}L</div><div class="mu"></div><div class="ml">Water Target</div></div>
+    </div>
+    <div style="margin-top:10px;font-size:0.75rem;color:var(--text-muted)">Calculated via Harris-Benedict (131kg/25y Male Baseline)</div>`;
+}
+
+// ── FOOD ─────────────────────────────────────────────────────────
+function renderFood(){
+  const groups=[
+    {t:'PROTEIN',items:['Grilled chicken (150g)','Eggs — 3–4/day','Hamour/fish (grilled)','Low-fat labneh']},
+    {t:'SMART CARBS',items:['Brown rice (½ cup)','Sweet potato (baked)','Whole wheat khubz','Lentil soup']},
+    {t:'HEALTHY FATS',items:['Avocado (½ daily)','Olive oil (1 tbsp)','Mixed nuts (30g)','Hummus (home)']},
+    {t:'VEG & VOLUME',items:['Cucumber & tomato','Spinach/rocket','Fattoush (no bread)','Dates (2–3 max)']},
+    {t:'AVOID',items:['Sugary drinks & karak','Deep fried foods','White bread & pastry','Meals after 9 PM']},
+    {t:'MEAL TIMING',items:['7 AM — Breakfast (eggs)','1 PM — Main meal','4 PM — Pre-walk snack','7 PM — Light dinner']},
+  ];
+  byId('foodContent').innerHTML=groups.map(g=>`<div class="food-group"><div class="food-gtitle">${g.t}</div>${g.items.map(i=>`<div class="food-item">${i}</div>`).join('')}</div>`).join('');
+}
+
+// ── RECOMMENDATIONS ───────────────────────────────────────────────
+function renderRecos(){
+  const {lost,sess,latestW}=_ctx;
+  const w=latestW||131.6,goal=parseFloat(byId('goalInput')&&byId('goalInput').value)||90,toGoal=+(w-goal).toFixed(1);
+  const rate=_weeklyRate>0?_weeklyRate:0.5,weeks=toGoal>0?Math.round(toGoal/rate):0;
+  const eta=()=>{const d=new Date();d.setDate(d.getDate()+weeks*7);return d.toLocaleDateString('en-GB',{month:'short',year:'numeric'});};
+  const recos=[
+    {icon:'📈',title:'Pace Analysis',body:lost!=null?`You have reduced your mass by <strong>${lost} kg</strong>. ${toGoal>0?`Based on your current expenditure, you will hit ${goal}kg by <strong>${eta()}</strong>.`:`You have reached your <strong>${goal}kg</strong> target.`}`:`Log at least two weigh-ins to unlock your pace projection.`,tag:toGoal>0?'On Track':'Goal Reached'},
+    {icon:'🏋️',title:'Hypertrophy Focus',body:`All ${sess} sessions are low-intensity. Add resistance training to increase resting metabolic rate.`,tag:'Strength Training Needed'},
+    {icon:'💧',title:'Hydration Matrix',body:`With your body mass and the local climate, aim for <strong>${(w*0.035).toFixed(1)}L</strong> daily plus workout electrolytes.`,tag:'High Priority'},
+    {icon:'😴',title:'Cortisol Control',body:`Sleep quality impacts visceral fat storage. Target 7.5 hours of consistent rest.`,tag:'Recovery Focus'},
+    {icon:'🎯',title:'Micro Milestone',body:`Your next psychological target is <strong>${(w-5).toFixed(1)} kg</strong>. Celebrate with a non-food reward.`,tag:'Next Target'},
+  ];
+  byId('recoContent').innerHTML=recos.map(r=>`<div class="reco-card"><div class="reco-icon">${r.icon}</div><div class="reco-title">${r.title}</div><div class="reco-body">${r.body}</div><span class="reco-tag">${r.tag}</span></div>`).join('');
+}
+
+// ── LOCATION & WEATHER TABLE ──────────────────────────────────────
+function renderLocationWeather(data){
+  const el=byId('locationWeatherTable');if(!el)return;
+  let rows=data.filter(r=>(r.date||r.month));
+  // Chronological order. A row whose date can't be read (blank date cell, note row, "TBC") takes the date of the row above it,
+  // so a single odd cell no longer switches sorting off for the whole log. Array.sort is stable: equal dates keep sheet order.
+  {let carry=-Infinity;const tm=new Map();rows.forEach(r=>{const d=rowDate(r);if(d)carry=d.getTime();tm.set(r,carry);});rows=rows.slice().sort((a,b)=>tm.get(a)-tm.get(b));}
+  if(!rows.length){el.innerHTML='<div style="color:var(--text-muted);font-size:0.8rem;padding:12px 0">No session data found.</div>';return;}
+  el.innerHTML=`<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:10px">${rows.length} Days</div>
+  <table class="lw-table">
+    <thead><tr><th>#</th><th>Date</th><th>Type</th><th>Place</th><th>Weather condition</th></tr></thead>
+    <tbody>${rows.map((r,i)=>{const d=fmtRowDate(r);return `<tr>
+      <td style="color:var(--text-muted);font-size:0.7rem">${i+1}</td>
+      <td>${d?esc(d+yrSuffix(r)):'—'}</td>
+      <td>${esc(r.type)||'—'}</td>
+      <td>${r.place?`<span class="lw-tag">${esc(r.place)}</span>`:'<span style="color:var(--text-muted)">—</span>'}</td>
+      <td>${r.weatherCond?`<span class="lw-wtag">${esc(r.weatherCond)}</span>`:'<span style="color:var(--text-muted)">—</span>'}</td>
+    </tr>`;}).join('')}</tbody>
+  </table>`;
+}
+
+// ── WEATHER ────────────────────────────────────────────────────────
+let _wxTs=0;
+async function fetchWeather(){
+  if(Date.now()-_wxTs<2*60*1000)return; // live weather isn't year-specific — skip re-fetch on quick tab switches
+  _wxTs=Date.now();
+  const box=byId('weatherContent');if(!box)return;
+  const ac=new AbortController(),to=setTimeout(()=>ac.abort(),8000);
+  try{
+    const r=await fetch('https://wttr.in/Manama,Bahrain?format=j1',{signal:ac.signal});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const d=await r.json();const c=d.current_condition[0];
+    const t=parseInt(c.temp_C),f=parseInt(c.FeelsLikeC),h=parseInt(c.humidity),w=parseInt(c.windspeedKmph),uv=parseInt(c.uvIndex),vis=parseInt(c.visibility);
+    const desc=c.weatherDesc[0].value;
+    const icons={'Sunny':'☀️','Clear':'🌙','Partly':'⛅','Cloud':'☁️','Rain':'🌧️','Sand':'🌪️'};
+    let icon='🌡️';for(const[k,v] of Object.entries(icons)){if(desc.includes(k)){icon=v;break;}}
+    const adv=t>=38||h>=80?['⚠ EXTREME HEAT — WORKOUT INDOORS ONLY','#d9a05b']:t>=32||h>=65?['⚠ HEAT ADVISORY — WALK BEFORE 08:00','#d9a05b']:['✓ SUITABLE FOR OUTDOOR EXERCISE','#3ddc97'];
+    box.innerHTML=`
+      <div class="weather-main"><div class="wicon">${icon}</div><div><div class="wtemp">${t}<span style="font-size:1.5rem;color:var(--text-dim)">°</span></div><div class="wdesc">${esc(desc)} • Feels like ${f}°C</div></div></div>
+      <div class="wstats">
+        <div class="wstat"><div class="wstat-l">Humidity</div><div class="wstat-v">${h}%</div></div>
+        <div class="wstat"><div class="wstat-l">Wind</div><div class="wstat-v">${w} km/h</div></div>
+        <div class="wstat"><div class="wstat-l">UV Index</div><div class="wstat-v">${uv}/11</div></div>
+        <div class="wstat"><div class="wstat-l">Visibility</div><div class="wstat-v">${vis} km</div></div>
+      </div>
+      <div class="wadv" style="background:rgba(255,255,255,0.03);color:${adv[1]}">${adv[0]}</div>`;
+  }catch(e){_wxTs=0;box.innerHTML='<div style="color:var(--text-dim);font-size:0.72rem">> WEATHER API UNAVAILABLE</div>';}
+  finally{clearTimeout(to);}
+}
+
+// ── PLACE & WEATHER SUMMARY BARS ─────────────────────────────────
+function renderPlaceWeatherSummary(data){
+  const el=byId('placeWeatherBars');if(!el)return;
+  const pC={},wC={};
+  data.forEach(r=>{
+    const p=(r.place||'').trim(),w=(r.weatherCond||'').trim();
+    if(p&&isNaN(p)&&p.length>1)pC[p]=(pC[p]||0)+1;
+    if(w&&isNaN(w)&&w.length>1)wC[w]=(wC[w]||0)+1;
+  });
+  const topP=Object.entries(pC).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  const topW=Object.entries(wC).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  const maxP=topP[0]?topP[0][1]:1,maxW=topW[0]?topW[0][1]:1;
+  let html='';
+  if(topP.length){
+    html+=`<div style="font-size:0.65rem;font-weight:700;color:var(--accent-cyan);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">📍 Place</div>`;
+    html+=topP.map(([t,c])=>`<div class="brow"><div class="blabel"><span>${esc(t)}</span><span>${c} SESSIONS</span></div><div class="btrack"><div class="bfill" style="width:${(c/maxP*100).toFixed(0)}%;background:linear-gradient(90deg,var(--accent-cyan),var(--accent-light))"></div></div></div>`).join('');
+  }
+  if(topW.length){
+    html+=`<div style="font-size:0.65rem;font-weight:700;color:var(--accent-orange);text-transform:uppercase;letter-spacing:0.06em;margin:${topP.length?'16px':0} 0 10px">☁️ Weather</div>`;
+    html+=topW.map(([t,c])=>`<div class="brow"><div class="blabel"><span>${esc(t)}</span><span>${c} SESSIONS</span></div><div class="btrack"><div class="bfill" style="width:${(c/maxW*100).toFixed(0)}%;background:linear-gradient(90deg,var(--accent-orange),#e8c872)"></div></div></div>`).join('');
+  }
+  if(!html)html='<div style="color:var(--text-muted);font-size:0.8rem">No place or weather data in sheet yet.</div>';
+  el.innerHTML=html;
+}
+
+// ── LOG ACCORDION ─────────────────────────────────────────────────
+function toggleLog(){
+  // FIX: .collapsible-body.open is capped at max-height:9999px with overflow:hidden. A full year of rows is taller than that
+  // (~43px × 300+ rows), so everything past ~235 rows (≈ end of September) was clipped. Now the panel animates to its real
+  // height and then drops the cap, so the whole log is always visible however many rows it has.
+  const body=byId('logBody'),label=byId('logToggleLabel'),arrow=byId('logArrow');
+  const opening=!body.classList.contains('open');
+  clearTimeout(body._capTimer);
+  if(opening){
+    body.classList.add('open');
+    body.style.maxHeight=body.scrollHeight+'px';                          // animate to the real height…
+    body._capTimer=setTimeout(()=>{body.style.maxHeight='none';},450);    // …then remove the cap entirely
+  }else{
+    body.style.maxHeight=body.scrollHeight+'px';void body.offsetHeight;    // start collapsing from the real height
+    body.classList.remove('open');body.style.maxHeight='0px';
+    body._capTimer=setTimeout(()=>{body.style.maxHeight='';},450);
+  }
+  label.textContent=opening?'Hide Log':'Show Log';
+  arrow.style.transform=opening?'rotate(180deg)':'rotate(0deg)';
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────
+window.addEventListener('unhandledrejection',e=>{console.error('Unhandled rejection:',e.reason);e.preventDefault();});
+_autoYear=getDefaultYear();currentYear=ALL; // dashboard always opens on All Years (the calendar year is still tracked for the rollover check)
+renderYearTabs();
+byId('yearTabs').addEventListener('keydown',e=>{
+  if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;
+  e.preventDefault();
+  const ys=tabKeys(),i=ys.indexOf(currentYear);
+  selectYear(ys[(i+(e.key==='ArrowRight'?1:ys.length-1))%ys.length]);
+  const a=document.querySelector('.year-tab.active');if(a)a.focus();
+});
+(function(){ // sidebar active-section highlight
+  const links=[...document.querySelectorAll('#sideNav a')];
+  addEventListener('scroll',()=>{let cur=links[0];links.forEach(a=>{const s=document.querySelector(a.getAttribute('href'));if(s&&s.offsetParent!==null&&s.getBoundingClientRect().top<200)cur=a;});links.forEach(a=>a.classList.toggle('on',a===cur));},{passive:true});
+})();
+(function(){ // mobile / tablet drawer (the sidebar is only a drawer at ≤900px; on desktop none of this has any effect)
+  const nav=byId('sideNav'),btn=byId('navToggle'),ov=byId('navOverlay');
+  if(!nav||!btn||!ov)return;
+  nav.setAttribute('tabindex','-1');
+  const set=open=>{
+    nav.classList.toggle('open',open);ov.classList.toggle('show',open);document.body.classList.toggle('nav-open',open);
+    btn.setAttribute('aria-expanded',open?'true':'false');btn.setAttribute('aria-label',open?'Close menu':'Open menu');
+    if(open)nav.focus({preventScroll:true});                                           // focus the drawer itself (its links are still fading in); Tab then enters the links
+  };
+  btn.addEventListener('click',()=>set(!nav.classList.contains('open')));
+  ov.addEventListener('click',()=>{set(false);btn.focus({preventScroll:true});});
+  nav.addEventListener('click',e=>{if(e.target.closest('a'))set(false);});            // picking a section closes the drawer
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&nav.classList.contains('open')){set(false);btn.focus({preventScroll:true});}});
+  const mq=window.matchMedia('(max-width:900px)');
+  const onChange=e=>{if(!e.matches)set(false);};                                       // rotating / resizing up to desktop closes it
+  if(mq.addEventListener)mq.addEventListener('change',onChange);else if(mq.addListener)mq.addListener(onChange);
+})();
+safeLoad();
+setInterval(safeLoad,15*60*1000);
+setInterval(checkYearRollover,60*1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkYearRollover();});
+</script>
+</body>
+</html>
